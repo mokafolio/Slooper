@@ -7,6 +7,7 @@
 - **Slooper** will allow you to turn the pi on and off with a remote.
 - **Slooper** comes in the form of a python install script that modifies an existing Raspbian installation which is a lot more maintainable than creating a custom image.
 - **Slooper** does **not** support audio right now.
+- **Slooper** does **not** support arbitrary video containers right now. **H264 ONLY!**
 
 ##What do you need
 - A Raspberry Pi and a fitting SD card, power supply etc.
@@ -21,6 +22,8 @@
 
 ##Installation
 - Install the remote board on your raspberry pi as described in the *Installation* section here: http://www.msldigital.com/pages/support-for-remotepi-board-plus-2015/
+- Put a **.m4v** or **.h264** video on the USB thumbdrive.
+- Plug the USB drive into the Pi. 
 - Download the most recent *Raspbian* image from the raspberry pi website: http://www.raspberrypi.org/downloads/
 - Install the image on the SD card of your choice as described here: http://www.raspberrypi.org/documentation/installation/installing-images/mac.md
 - Connect the Pi to the internet (with an ethernet cable).
@@ -39,13 +42,29 @@
 ##What does the installation script do?
 - The installation script is losely based on this article: http://curioustechnologist.com/post/90061671996/rpilooper-v2-seamless-video-looper-step-by-step , fully automating the steps that are necessary while adding some extra scripts and things to handle the remote.
 
-### So what is happening in deatail?
+### So what is happening in detail?
 - It will update your Raspbian.
 - It will build all the pi software examples.
-- It will slightly change the *hello_pi/video* example to perform the seamless looping. This will be used to playback the video. (I did a lot of research to see what method provides the best seamless loop, omxplayer, openFrameworks etc.. The hello_video example performed best by far! That's also why there is now audio support right now)
+- It will slightly change the *hello_pi/video* example to perform the seamless looping. This will be used to playback the video. (I did a lot of research to see what method provides the best seamless loop, omxplayer, openFrameworks etc.. The hello_video example performed best by far! That's also why there is now audio support right now)s
 - It will create a mounting point for the USB drive and make sure it mounts on every boot.
 - It will install a python script called *RemoteVideo.py* to */home/pi/Scripts*. This script will start and stop the video and handle the remote.
 - It will add that script to the startup items (by changing */etc/rc.local*).
 - It will adjust */boot/cmdline.txt* to hide the Pi logo and console text while booting.
 
 For implementation details, check out the actual script!
+
+##What has Slooper been tested on?
+- Slooper has been tested on a *Raspberry Pi 1 Model B+* and *Raspberry Pi 2 Model B*
+- Slooper has been tested with *2015-02-16-raspbian-wheezy.img*
+
+##Roadmap
+- Expose some of the internals of the installation script through settings.
+- Make a **Slooper** version without a remote.
+- Make a **Slooper** version that starts/exits videos on a timer.
+
+##Video Compression Recommendations
+- 1080p
+- H264 format
+- VBR 2 pass
+- setting the bitrate target and max to 60 seemed a good compromise of speed and quality.
+- Export as .m4v or .h264
