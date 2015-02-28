@@ -146,7 +146,6 @@ subprocess.call("chmod +x /home/pi/Scripts/RemoteVideo.py", shell=True)
 # add the remote script to the start up items
 log("Add RemoteVideo.py to /etc/rc.local to run after booting.")
 f = open("/etc/rc.local", "r")
-#replace a piece of code to loop instead of end the app
 filedata = f.read()
 f.close()
 if not "(/home/pi/Scripts/RemoteVideo.py)&\nexit 0" in filedata:
