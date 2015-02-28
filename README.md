@@ -6,6 +6,7 @@
 - **Slooper** will cleanly boot into the video to turn your pi into a video playback kiosk.
 - **Slooper** will allow you to turn the pi on and off with a remote.
 - **Slooper** comes in the form of a python install script that modifies an existing Raspbian installation which is a lot more maintainable than creating a custom image.
+- **Slooper** is MIT licensed.
 - **Slooper** does **not** support audio right now.
 - **Slooper** does **not** support arbitrary video containers right now. **H264 ONLY!**
 
@@ -45,7 +46,7 @@
 ### So what is happening in detail?
 - It will update your Raspbian.
 - It will build all the pi software examples.
-- It will slightly change the *hello_pi/video* example to perform the seamless looping. This will be used to playback the video. (I did a lot of research to see what method provides the best seamless loop, omxplayer, openFrameworks etc.. The hello_video example performed best by far! That's also why there is now audio support right now)s
+- It will slightly change the *hello_pi/video* example to perform the seamless looping. This will be used to playback the video. (I did a lot of research to see what method provides the best seamless loop, omxplayer, openFrameworks etc.. The hello_video example performed best by far! That's also why there is now audio support right now).
 - It will create a mounting point for the USB drive and make sure it mounts on every boot.
 - It will install a python script called *RemoteVideo.py* to */home/pi/Scripts*. This script will start and stop the video and handle the remote.
 - It will add that script to the startup items (by changing */etc/rc.local*).
