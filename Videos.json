@@ -1,0 +1,23 @@
+{
+	"settings": 
+	{
+		"Default":
+		{
+			"displayPixelWidth": 1024,
+			"displayPixelHeight": 768,
+			"displayScan": "progressive",
+			"displayRate": 60
+		}
+	},
+	"videos":
+	[
+		{
+			"file": "Video1.m4v",
+			"settings": "Default"
+		},
+		{
+			"file": "Video2.m4v",
+			"settings": "Default"
+		}
+	]
+}

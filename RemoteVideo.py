@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import subprocess
 import signal
 import os
+import json
 
 def log(_str, _bTimeStamp = True):
 	logFilePath = "/home/pi/VideoLog.txt"
@@ -27,6 +28,72 @@ def log(_str, _bTimeStamp = True):
 	logFile.write(message + "\\n")
 
 pin=14
+
+
+with open('/home/pi/USBVideoMount/VideoSettings.json') as jsonFile:    
+    jsonData = json.load(jsonFile)
+
+requestedWidth = 1920
+requestedHeight = 1080
+requestedScan = "progressive"
+requestedRate = 60
+
+if jsonData.get('displayPixelWidth'):
+	requestedWidth = jsonData["displayPixelWidth"]
+
+if jsonData.get('displayPixelHeight'):
+	requestedHeight = jsonData["displayPixelHeight"]
+
+if jsonData.get('displayScan'):
+	requestedScan = jsonData["displayScan"]
+
+if jsonData.get('displayRate'):
+	requestedRate = jsonData["displayRate"]
+
+
+log("The requested display pixel width is " + str(requestedWidth) + ".")
+log("The requested display pixel height is " + str(requestedHeight) + ".")
+log("The requested display scan is " + str(requestedScan) + ".")
+log("The requested display rate is " + str(requestedRate) + ".")
+
+availableModes = subprocess.check_output("tvservice -j -m CEA", shell=True)
+availableModes2 = subprocess.check_output("tvservice -j -m DMT", shell=True)
+#availableModes = availableModes[0:-3] + ", " + availableModes2[1:]
+#print availableModes
+jsonData = json.loads(availableModes)
+jsonData2 = json.loads(availableModes2)
+
+def findBestDisplayMode(_dmtModes, _ceaModes):
+	global bestWDiff, bestHDiff, bestRDiff, bestMode
+	log("The available display modes are:")
+	bestWDiff = bestHDiff = bestRDiff = float("inf")
+	bestWidth = bestHeight = 0
+	bestMode = {}
+	def compare(_modes, _type):
+		global bestWDiff, bestHDiff, bestRDiff, bestMode
+		for obj in _modes:
+			scan = "interlaced" if obj["scan"] == "i" else "progressive"
+			log("Width: " + str(obj["width"]) + " Height: " + str(obj["height"]) + " Rate: " + str(obj["rate"]) + " Scan: " + scan)
+			#check if we have a perfect match
+			if obj["width"] == requestedWidth and obj["height"] == requestedHeight and obj["rate"] == requestedRate and scan == requestedScan:
+				bestMode = {"width" : requestedWidth, "height" : requestedHeight, "rate" : requestedRate, "scan" : requestedScan, "code" : obj["code"], "type" : _type}
+				break
+
+			wdiff = abs(obj["width"] - requestedWidth)
+			hdiff = abs(obj["height"] - requestedHeight)
+			rDiff = abs(obj["rate"] - requestedRate)
+			if wdiff <= bestWDiff and hdiff <= bestHDiff and rDiff <= bestRDiff:
+				bestWDiff = wdiff
+				bestHDiff = hdiff
+				bestRDiff = rDiff
+				bestMode = {"width" : obj["width"], "height" : obj["height"], "rate" : obj["rate"], "scan" : scan, "code" : obj["code"], "type" : _type}
+	compare(_dmtModes, "DMT")
+	compare(_ceaModes, "CEA")
+	return bestMode
+
+bestMode = findBestDisplayMode(jsonData2, jsonData)
+log("Best Mode, Width: " + str(bestMode["width"]) + " Height: " + str(bestMode["height"]) + " Rate: " + str(bestMode["rate"]) + " Scan: " + bestMode["scan"])
+subprocess.call("tvservice -e \"" + bestMode["type"] + " " + str(bestMode["code"]) + "\"" , shell=True)
 
 #GPIO pin stuff based on the instructions from the remote board people here:
 #http://www.msldigital.com/pages/support-for-remotepi-board-plus-2015/
