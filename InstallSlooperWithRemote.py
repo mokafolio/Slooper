@@ -17,6 +17,7 @@ subprocess.call("sudo apt-get upgrade", shell=True)
 
 #build the pi examples (we need the dependenvies for the video example)
 log("Building the pi examples.")
+cwd = os.getcwd()
 os.chdir("/opt/vc/src/hello_pi/")
 subprocess.call("./rebuild.sh", shell=True)
 
@@ -59,6 +60,7 @@ if not "/dev/sda1 /home/pi/USBVideoMount vfat defaults 0 0" in filedata:
 f.close()
 
 #now install the remote script
+os.chdir(cwd)
 remoteScriptFile = open("RemoteVideo.py", "r")
 remoteScript = remoteScriptFile.read()
 remoteScriptFile.close()
