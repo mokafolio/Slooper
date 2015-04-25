@@ -7,6 +7,13 @@ import subprocess
 import signal
 import os
 import json
+import sys
+import curses
+
+damn = curses.initscr()
+damn.nodelay(1) # doesn't keep waiting for a key press
+damn.keypad(1) # i.e. arrow keys
+curses.noecho() # stop keys echoing
 
 def log(_str, _bTimeStamp = True):
 	logFilePath = "/home/pi/VideoLog.txt"
@@ -25,115 +32,207 @@ def log(_str, _bTimeStamp = True):
 		message += str(datetime.now()) + ": "
 	message += _str
 	print message
-	logFile.write(message + "\\n")
+	logFile.write(message + "\n")
 
-pin=14
-
-
-with open('/home/pi/USBVideoMount/VideoSettings.json') as jsonFile:    
+with open('/home/pi/Videos.json') as jsonFile:    
     jsonData = json.load(jsonFile)
 
-requestedWidth = 1920
-requestedHeight = 1080
-requestedScan = "progressive"
-requestedRate = 60
+# discribes a display configuration
+class DisplaySettings:
+	# some reasonable defaults
+	displayPixelWidth = 1920
+	displayPixelHeight = 1080
+	displayScan = "progressive"
+	displayRate = 60
 
-if jsonData.get('displayPixelWidth'):
-	requestedWidth = jsonData["displayPixelWidth"]
+# describes a video file and its optimal settings
+class Video:
+	path = ""
+	settings = ""
 
-if jsonData.get('displayPixelHeight'):
-	requestedHeight = jsonData["displayPixelHeight"]
+# describes a playing video
+class VideoSession:
+	processID = -1
+	video = None
 
-if jsonData.get('displayScan'):
-	requestedScan = jsonData["displayScan"]
+# dict mapping a settings name to its DisplaySettings obj
+displaySettings = {}
+# array holding all the Video objects
+videos = []
+# dict mapping a key press to a Video object
+keyVideoMap = {}
 
-if jsonData.get('displayRate'):
-	requestedRate = jsonData["displayRate"]
+# parse the settings from the Videos.json
+for k,v in jsonData["settings"].items():
+	settings = DisplaySettings()
+	if v.get('displayPixelWidth'):
+		settings.displayPixelWidth = v["displayPixelWidth"]
+	if v.get('displayPixelHeight'):
+		settings.displayPixelHeight = v["displayPixelHeight"]
+	if v.get('displayScan'):
+		settings.displayScan = v["displayScan"]
+	if v.get('displayRate'):
+		settings.displayRate = v["displayRate"]
+	displaySettings[k] = settings
 
+# parse the videos from Videos.json
+for video in jsonData["videos"]:
+	vid = Video()
+	vid.path = video["file"]
+	vid.settings = video["settings"]
+	videos.append(vid)
+	keyVideoMap[video["key"]] = vid
 
-log("The requested display pixel width is " + str(requestedWidth) + ".")
-log("The requested display pixel height is " + str(requestedHeight) + ".")
-log("The requested display scan is " + str(requestedScan) + ".")
-log("The requested display rate is " + str(requestedRate) + ".")
+# holds the currently playing video and some extra info
+currentVideoSession = None
 
-availableModes = subprocess.check_output("tvservice -j -m CEA", shell=True)
-availableModes2 = subprocess.check_output("tvservice -j -m DMT", shell=True)
-#availableModes = availableModes[0:-3] + ", " + availableModes2[1:]
-#print availableModes
-jsonData = json.loads(availableModes)
-jsonData2 = json.loads(availableModes2)
+# helper to stop the currently playing video process
+def stopCurrentVideo():
+	os.killpg(currentVideoSession.processID, signal.SIGTERM)
 
-def findBestDisplayMode(_dmtModes, _ceaModes):
-	global bestWDiff, bestHDiff, bestRDiff, bestMode
-	log("The available display modes are:")
-	bestWDiff = bestHDiff = bestRDiff = float("inf")
-	bestWidth = bestHeight = 0
-	bestMode = {}
-	def compare(_modes, _type):
+# this function stops the current video, if any, and starts playing the requested one
+# Before it starts playing, it will try to apply the new videos requested DisplaySettings
+def playVideo(video):
+	global currentVideoSession
+	# quit the previos video process if any
+	if currentVideoSession:
+		stopCurrentVideo()
+
+	# make the new session
+	currentVideoSession = VideoSession()
+	currentVideoSession.video = video
+	# make sure the settings exist
+	currentSettings = displaySettings[currentVideoSession.video.settings]
+	assert currentSettings != None
+
+	# generate the full video path and make sure the video file exists
+	videoPath = "/home/pi/USBVideoMount/" + currentVideoSession.video.path
+	if not os.path.exists(videoPath):
+		log("The video files does not exist")
+		sys.exit()
+
+	requestedWidth = currentSettings.displayPixelWidth
+	requestedHeight = currentSettings.displayPixelHeight
+	requestedScan = currentSettings.displayScan
+	requestedRate = currentSettings.displayRate
+
+	log("The requested display pixel width is " + str(requestedWidth) + ".")
+	log("The requested display pixel height is " + str(requestedHeight) + ".")
+	log("The requested display scan is " + str(requestedScan) + ".")
+	log("The requested display rate is " + str(requestedRate) + ".")
+
+	# get all the available display modes and find the best one for the requested settings
+	availableModes = subprocess.check_output("tvservice -j -m CEA", shell=True)
+	availableModes2 = subprocess.check_output("tvservice -j -m DMT", shell=True)
+	jsonData = json.loads(availableModes)
+	jsonData2 = json.loads(availableModes2)
+
+	def findBestDisplayMode(_dmtModes, _ceaModes):
 		global bestWDiff, bestHDiff, bestRDiff, bestMode
-		for obj in _modes:
-			scan = "interlaced" if obj["scan"] == "i" else "progressive"
-			log("Width: " + str(obj["width"]) + " Height: " + str(obj["height"]) + " Rate: " + str(obj["rate"]) + " Scan: " + scan)
-			#check if we have a perfect match
-			if obj["width"] == requestedWidth and obj["height"] == requestedHeight and obj["rate"] == requestedRate and scan == requestedScan:
-				bestMode = {"width" : requestedWidth, "height" : requestedHeight, "rate" : requestedRate, "scan" : requestedScan, "code" : obj["code"], "type" : _type}
-				break
+		log("The available display modes are:")
+		bestWDiff = bestHDiff = bestRDiff = float("inf")
+		bestWidth = bestHeight = 0
+		bestMode = {}
+		def compare(_modes, _type):
+			global bestWDiff, bestHDiff, bestRDiff, bestMode
+			for obj in _modes:
+				scan = "interlaced" if obj["scan"] == "i" else "progressive"
+				log("Width: " + str(obj["width"]) + " Height: " + str(obj["height"]) + " Rate: " + str(obj["rate"]) + " Scan: " + scan)
+				#check if we have a perfect match
+				if obj["width"] == requestedWidth and obj["height"] == requestedHeight and obj["rate"] == requestedRate and scan == requestedScan:
+					bestMode = {"width" : requestedWidth, "height" : requestedHeight, "rate" : requestedRate, "scan" : requestedScan, "code" : obj["code"], "type" : _type}
+					break
 
-			wdiff = abs(obj["width"] - requestedWidth)
-			hdiff = abs(obj["height"] - requestedHeight)
-			rDiff = abs(obj["rate"] - requestedRate)
-			if wdiff <= bestWDiff and hdiff <= bestHDiff and rDiff <= bestRDiff:
-				bestWDiff = wdiff
-				bestHDiff = hdiff
-				bestRDiff = rDiff
-				bestMode = {"width" : obj["width"], "height" : obj["height"], "rate" : obj["rate"], "scan" : scan, "code" : obj["code"], "type" : _type}
-	compare(_dmtModes, "DMT")
-	compare(_ceaModes, "CEA")
-	return bestMode
+				wdiff = abs(obj["width"] - requestedWidth)
+				hdiff = abs(obj["height"] - requestedHeight)
+				rDiff = abs(obj["rate"] - requestedRate)
+				if wdiff <= bestWDiff and hdiff <= bestHDiff and rDiff <= bestRDiff:
+					bestWDiff = wdiff
+					bestHDiff = hdiff
+					bestRDiff = rDiff
+					bestMode = {"width" : obj["width"], "height" : obj["height"], "rate" : obj["rate"], "scan" : scan, "code" : obj["code"], "type" : _type}
+		compare(_dmtModes, "DMT")
+		compare(_ceaModes, "CEA")
+		return bestMode
 
-bestMode = findBestDisplayMode(jsonData2, jsonData)
-log("Best Mode, Width: " + str(bestMode["width"]) + " Height: " + str(bestMode["height"]) + " Rate: " + str(bestMode["rate"]) + " Scan: " + bestMode["scan"])
-subprocess.call("tvservice -e \"" + bestMode["type"] + " " + str(bestMode["code"]) + "\"" , shell=True)
+	bestMode = findBestDisplayMode(jsonData2, jsonData)
+	log("Best Mode, Width: " + str(bestMode["width"]) + " Height: " + str(bestMode["height"]) + " Rate: " + str(bestMode["rate"]) + " Scan: " + bestMode["scan"])
+	
+	# apply the best mode
+	subprocess.call("tvservice -e \"" + bestMode["type"] + " " + str(bestMode["code"]) + "\"" , shell=True)
+
+	# start the video process
+	log("Starting Video: " + videoPath)
+	videoProcess = subprocess.Popen("/opt/vc/src/hello_pi/hello_video/hello_video.bin " + videoPath, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+	currentVideoSession.processID = videoProcess.pid
+
+def gpioShutdownSequence():
+	#this is the shutdown sequence of the remote board, see the site linked below
+	offPin = 15
+	GPIO.setup(offPin, GPIO.OUT)
+	GPIO.output(offPin, 1)
+	time.sleep(0.125)
+	GPIO.output(offPin, 0)
+	time.sleep(0.2)
+	GPIO.output(offPin, 1)
+	time.sleep(0.4)
+	GPIO.output(offPin, 0)
+
+#play the first video in the array as the default one
+playVideo(videos[0])
 
 #GPIO pin stuff based on the instructions from the remote board people here:
 #http://www.msldigital.com/pages/support-for-remotepi-board-plus-2015/
+pin=14
 GPIO.setmode(GPIO.BCM)
-
-#GPIO.setup(pin, GPIO.OUT)
-#GPIO.output(pin, 1)
 GPIO.setup(pin, GPIO.IN)
 
-log("Starting Video")
-videoProcess = subprocess.Popen("/opt/vc/src/hello_pi/hello_video/hello_video.bin /home/pi/USBVideoMount/*.m4v", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-
-startTime = datetime.now()
+bShutDown = False
+# the main loop
 while True:
 	bQuit = False
-	if datetime.now() - startTime >= timedelta(hours=16):
-		log("Sixteen hours have passed, we quit now")
-		#this is the shutdown sequence of the remote board, see the site linked above
-		offPin = 15
-		GPIO.setup(offPin, GPIO.OUT)
-		GPIO.output(offPin, 1)
-		time.sleep(0.125)
-		GPIO.output(offPin, 0)
-		time.sleep(0.2)
-		GPIO.output(offPin, 1)
-		time.sleep(0.4)
-		GPIO.output(offPin, 0)
-		bQuit = True
+	# query if a key is pressed
+	c = damn.getch()
+  	if c == ord('q'):
+  		# if q is pressed, we quit and shutdown, replicating the remote behavior
+  		log("Keyboard q pressed, we quit and shut down now")
+  		gpioShutdownSequence()
+  		bQuit = True
+  	if c == ord('w'):
+  		# if w is pressed, we simply quit the video and this app, without shutting down
+  		log("Keyboard w pressed, we quit now")
+  		stopCurrentVideo()
+  		break
+  	elif c in range(256):
+  		# otherwise we check if the key is mapped to a video. If so, we start playing that video
+  		if chr(c) in keyVideoMap:
+  			playVideo(keyVideoMap[chr(c)])
+
+  	# check if the remote is pressed
 	if GPIO.input(pin) != 0:
-		log("Remote pressed, we quit now")
+		log("Remote pressed, we quit and shut down now")
 		bQuit = True
 
+	# do shutdown procedure
 	if bQuit:
-		os.killpg(videoProcess.pid, signal.SIGTERM)
+		stopCurrentVideo()
 		GPIO.setup(pin, GPIO.OUT)
 		GPIO.output(pin, 1)
 		time.sleep(3)
+		bShutDown = True
 		break
 	time.sleep(0.1)
 
+# close curses
+curses.endwin()
+
+# show the console again
+subprocess.call("fbset -depth 8 && fbset -depth 16", shell=True)
+
+# cleanup GPIO
 GPIO.cleanup()
-log("Shutting down")
-subprocess.call("sudo poweroff", shell=True)
+
+# and shutdown if requested
+if bShutDown:
+	log("Shutting down")
+	subprocess.call("sudo poweroff", shell=True)

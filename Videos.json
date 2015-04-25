@@ -1,10 +1,17 @@
 {
 	"settings": 
 	{
-		"Default":
+		"LowRes":
 		{
 			"displayPixelWidth": 1024,
 			"displayPixelHeight": 768,
+			"displayScan": "progressive",
+			"displayRate": 60
+		}
+		"HD":
+		{
+			"displayPixelWidth": 1920,
+			"displayPixelHeight": 1080,
 			"displayScan": "progressive",
 			"displayRate": 60
 		}
@@ -13,11 +20,11 @@
 	[
 		{
 			"file": "Video1.m4v",
-			"settings": "Default"
+			"settings": "LowRes"
 		},
 		{
 			"file": "Video2.m4v",
-			"settings": "Default"
+			"settings": "HD"
 		}
 	]
 }
