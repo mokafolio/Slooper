@@ -30,9 +30,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
+#include <cmath>
 
-#include "bcm_host.h"
-#include "ilclient.h"
+extern "C"
+{
+   #include "bcm_host.h"
+   #include "ilclient.h"
+}
+
+#define OMX_INIT_STRUCTURE(a) \
+  memset(&(a), 0, sizeof(a)); \
+  (a).nSize = sizeof(a); \
+  (a).nVersion.s.nVersionMajor = OMX_VERSION_MAJOR; \
+  (a).nVersion.s.nVersionMinor = OMX_VERSION_MINOR; \
+  (a).nVersion.s.nRevision = OMX_VERSION_REVISION; \
+  (a).nVersion.s.nStep = OMX_VERSION_STEP
 
 static int video_decode_test(char *filename)
 {
@@ -66,7 +79,7 @@ static int video_decode_test(char *filename)
    }
 
    // create video_decode
-   if(ilclient_create_component(client, &video_decode, "video_decode", ILCLIENT_DISABLE_ALL_PORTS | ILCLIENT_ENABLE_INPUT_BUFFERS) != 0)
+   if(ilclient_create_component(client, &video_decode, "video_decode", (ILCLIENT_CREATE_FLAGS_T)(ILCLIENT_DISABLE_ALL_PORTS | ILCLIENT_ENABLE_INPUT_BUFFERS)) != 0)
       status = -14;
    list[0] = video_decode;
 
@@ -79,6 +92,21 @@ static int video_decode_test(char *filename)
    if(status == 0 && ilclient_create_component(client, &clock, "clock", ILCLIENT_DISABLE_ALL_PORTS) != 0)
       status = -14;
    list[2] = clock;
+
+   OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+   OMX_TIME_CONFIG_SCALETYPE scaleType;
+   OMX_INIT_STRUCTURE(scaleType);
+
+   float speed = 0.75;
+   scaleType.xScale = std::floor((speed * std::pow(2,16)));
+    
+   printf("set speed to : %.2f, %d\n", speed, scaleType.xScale);
+    
+   omx_err = OMX_SetParameter(ILC_GET_HANDLE(clock), OMX_IndexConfigTimeScale, &scaleType);
+   if(omx_err != OMX_ErrorNone)
+   {
+        printf("Speed error setting OMX_IndexConfigTimeClockState : %d\n", omx_err);
+   }
 
    memset(&cstate, 0, sizeof(cstate));
    cstate.nSize = sizeof(cstate);
