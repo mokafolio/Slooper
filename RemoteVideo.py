@@ -16,7 +16,7 @@ damn.keypad(1) # i.e. arrow keys
 curses.noecho() # stop keys echoing
 
 def log(_str, _bTimeStamp = True):
-	logFilePath = "/home/pi/VideoLog.txt"
+	logFilePath = "/home/pi/USBVideoMount/VideoLog.txt"
 
 	if os.path.exists(logFilePath):
 		with open(logFilePath, "r") as fin:
@@ -26,7 +26,7 @@ def log(_str, _bTimeStamp = True):
 			with open(logFilePath, "w") as fout:
 				fout.writelines(data[diff:])
 
-	logFile = open("/home/pi/VideoLog.txt", "a")
+	logFile = open(logFilePath, "a")
 	message = ""
 	if _bTimeStamp:
 		message += str(datetime.now()) + ": "
@@ -34,7 +34,7 @@ def log(_str, _bTimeStamp = True):
 	print message
 	logFile.write(message + "\n")
 
-with open('/home/pi/Videos.json') as jsonFile:    
+with open('/home/pi/USBVideoMount/Videos.json') as jsonFile:    
     jsonData = json.load(jsonFile)
 
 # discribes a display configuration
@@ -45,15 +45,16 @@ class DisplaySettings:
 	displayScan = "progressive"
 	displayRate = 60
 
-# describes a video file and its optimal settings
-class Video:
-	path = ""
+# describes a collection of video files and that share settings and keyboard key
+class VideoGroup:
+	files = [] 
+	currentIndex = 0
 	settings = ""
 
 # describes a playing video
 class VideoSession:
 	processID = -1
-	video = None
+	videoGroup = None
 
 # dict mapping a settings name to its DisplaySettings obj
 displaySettings = {}
@@ -76,9 +77,9 @@ for k,v in jsonData["settings"].items():
 	displaySettings[k] = settings
 
 # parse the videos from Videos.json
-for video in jsonData["videos"]:
-	vid = Video()
-	vid.path = video["file"]
+for video in jsonData["videoGroups"]:
+	vid = VideoGroup()
+	vid.files = video["files"]
 	vid.settings = video["settings"]
 	videos.append(vid)
 	keyVideoMap[video["key"]] = vid
@@ -92,74 +93,84 @@ def stopCurrentVideo():
 
 # this function stops the current video, if any, and starts playing the requested one
 # Before it starts playing, it will try to apply the new videos requested DisplaySettings
-def playVideo(video):
+def playVideo(videoGroup):
 	global currentVideoSession
+	lastGroup = None
+
 	# quit the previos video process if any
 	if currentVideoSession:
 		stopCurrentVideo()
+		lastGroup = currentVideoSession.videoGroup
 
 	# make the new session
 	currentVideoSession = VideoSession()
-	currentVideoSession.video = video
+	currentVideoSession.videoGroup = videoGroup
 	# make sure the settings exist
-	currentSettings = displaySettings[currentVideoSession.video.settings]
+	currentSettings = displaySettings[currentVideoSession.videoGroup.settings]
 	assert currentSettings != None
 
 	# generate the full video path and make sure the video file exists
-	videoPath = "/home/pi/USBVideoMount/" + currentVideoSession.video.path
+	currentVideoSession.videoGroup.currentIndex += 1
+	if currentVideoSession.videoGroup.currentIndex >= len(currentVideoSession.videoGroup.files):
+		currentVideoSession.videoGroup.currentIndex = 0
+
+	log("The current video index is: " + str(currentVideoSession.videoGroup.currentIndex))
+
+	videoPath = "/home/pi/USBVideoMount/" + currentVideoSession.videoGroup.files[currentVideoSession.videoGroup.currentIndex]
 	if not os.path.exists(videoPath):
 		log("The video files does not exist")
 		sys.exit()
 
-	requestedWidth = currentSettings.displayPixelWidth
-	requestedHeight = currentSettings.displayPixelHeight
-	requestedScan = currentSettings.displayScan
-	requestedRate = currentSettings.displayRate
+	if lastGroup == None or lastGroup != videoGroup:
+		requestedWidth = currentSettings.displayPixelWidth
+		requestedHeight = currentSettings.displayPixelHeight
+		requestedScan = currentSettings.displayScan
+		requestedRate = currentSettings.displayRate
 
-	log("The requested display pixel width is " + str(requestedWidth) + ".")
-	log("The requested display pixel height is " + str(requestedHeight) + ".")
-	log("The requested display scan is " + str(requestedScan) + ".")
-	log("The requested display rate is " + str(requestedRate) + ".")
+		log("The requested display pixel width is " + str(requestedWidth) + ".")
+		log("The requested display pixel height is " + str(requestedHeight) + ".")
+		log("The requested display scan is " + str(requestedScan) + ".")
+		log("The requested display rate is " + str(requestedRate) + ".")
 
-	# get all the available display modes and find the best one for the requested settings
-	availableModes = subprocess.check_output("tvservice -j -m CEA", shell=True)
-	availableModes2 = subprocess.check_output("tvservice -j -m DMT", shell=True)
-	jsonData = json.loads(availableModes)
-	jsonData2 = json.loads(availableModes2)
+		# get all the available display modes and find the best one for the requested settings
+		availableModes = subprocess.check_output("tvservice -j -m CEA", shell=True)
+		availableModes2 = subprocess.check_output("tvservice -j -m DMT", shell=True)
+		jsonData = json.loads(availableModes)
+		jsonData2 = json.loads(availableModes2)
 
-	def findBestDisplayMode(_dmtModes, _ceaModes):
-		global bestWDiff, bestHDiff, bestRDiff, bestMode
-		log("The available display modes are:")
-		bestWDiff = bestHDiff = bestRDiff = float("inf")
-		bestWidth = bestHeight = 0
-		bestMode = {}
-		def compare(_modes, _type):
+		def findBestDisplayMode(_dmtModes, _ceaModes):
 			global bestWDiff, bestHDiff, bestRDiff, bestMode
-			for obj in _modes:
-				scan = "interlaced" if obj["scan"] == "i" else "progressive"
-				log("Width: " + str(obj["width"]) + " Height: " + str(obj["height"]) + " Rate: " + str(obj["rate"]) + " Scan: " + scan)
-				#check if we have a perfect match
-				if obj["width"] == requestedWidth and obj["height"] == requestedHeight and obj["rate"] == requestedRate and scan == requestedScan:
-					bestMode = {"width" : requestedWidth, "height" : requestedHeight, "rate" : requestedRate, "scan" : requestedScan, "code" : obj["code"], "type" : _type}
-					break
+			log("The available display modes are:")
+			bestWDiff = bestHDiff = bestRDiff = float("inf")
+			bestWidth = bestHeight = 0
+			bestMode = {}
+			def compare(_modes, _type):
+				global bestWDiff, bestHDiff, bestRDiff, bestMode
+				for obj in _modes:
+					scan = "interlaced" if obj["scan"] == "i" else "progressive"
+					log("Width: " + str(obj["width"]) + " Height: " + str(obj["height"]) + " Rate: " + str(obj["rate"]) + " Scan: " + scan)
+					#check if we have a perfect match
+					if obj["width"] == requestedWidth and obj["height"] == requestedHeight and obj["rate"] == requestedRate and scan == requestedScan:
+						bestMode = {"width" : requestedWidth, "height" : requestedHeight, "rate" : requestedRate, "scan" : requestedScan, "code" : obj["code"], "type" : _type}
+						break
 
-				wdiff = abs(obj["width"] - requestedWidth)
-				hdiff = abs(obj["height"] - requestedHeight)
-				rDiff = abs(obj["rate"] - requestedRate)
-				if wdiff <= bestWDiff and hdiff <= bestHDiff and rDiff <= bestRDiff:
-					bestWDiff = wdiff
-					bestHDiff = hdiff
-					bestRDiff = rDiff
-					bestMode = {"width" : obj["width"], "height" : obj["height"], "rate" : obj["rate"], "scan" : scan, "code" : obj["code"], "type" : _type}
-		compare(_dmtModes, "DMT")
-		compare(_ceaModes, "CEA")
-		return bestMode
+					wdiff = abs(obj["width"] - requestedWidth)
+					hdiff = abs(obj["height"] - requestedHeight)
+					rDiff = abs(obj["rate"] - requestedRate)
+					if wdiff <= bestWDiff and hdiff <= bestHDiff and rDiff <= bestRDiff:
+						bestWDiff = wdiff
+						bestHDiff = hdiff
+						bestRDiff = rDiff
+						bestMode = {"width" : obj["width"], "height" : obj["height"], "rate" : obj["rate"], "scan" : scan, "code" : obj["code"], "type" : _type}
+			compare(_dmtModes, "DMT")
+			compare(_ceaModes, "CEA")
+			return bestMode
 
-	bestMode = findBestDisplayMode(jsonData2, jsonData)
-	log("Best Mode, Width: " + str(bestMode["width"]) + " Height: " + str(bestMode["height"]) + " Rate: " + str(bestMode["rate"]) + " Scan: " + bestMode["scan"])
-	
-	# apply the best mode
-	subprocess.call("tvservice -e \"" + bestMode["type"] + " " + str(bestMode["code"]) + "\"" , shell=True)
+		bestMode = findBestDisplayMode(jsonData2, jsonData)
+		log("Best Mode, Width: " + str(bestMode["width"]) + " Height: " + str(bestMode["height"]) + " Rate: " + str(bestMode["rate"]) + " Scan: " + bestMode["scan"])
+		
+		# apply the best mode
+		subprocess.call("tvservice -e \"" + bestMode["type"] + " " + str(bestMode["code"]) + "\"" , shell=True)
 
 	# start the video process
 	log("Starting Video: " + videoPath)

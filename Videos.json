@@ -7,7 +7,7 @@
 			"displayPixelHeight": 768,
 			"displayScan": "progressive",
 			"displayRate": 60
-		}
+		},
 		"HD":
 		{
 			"displayPixelWidth": 1920,
@@ -16,15 +16,24 @@
 			"displayRate": 60
 		}
 	},
-	"videos":
+	"videoGroups":
 	[
 		{
-			"file": "Video1.m4v",
-			"settings": "LowRes"
+			"files": 
+			[
+				"judy_crook_fall_winter1.m4v",
+				"judy_crook_fall1.m4v"
+			],
+			"settings": "LowRes",
+			"key": "1"
 		},
 		{
-			"file": "Video2.m4v",
-			"settings": "HD"
+			"files":
+			[
+				"orbit_build9_tiffs_shorter.m4v"
+			],
+			"settings": "HD",
+			"key": "2"
 		}
 	]
 }

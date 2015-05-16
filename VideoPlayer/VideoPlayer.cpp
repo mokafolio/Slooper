@@ -51,6 +51,12 @@ extern "C"
   (a).nVersion.s.nRevision = OMX_VERSION_REVISION; \
   (a).nVersion.s.nStep = OMX_VERSION_STEP
 
+static inline uint64_t fromOMXTime(OMX_TICKS ticks)
+{
+   uint64_t pts = ticks.nLowPart | ((uint64_t)ticks.nHighPart << 32);
+   return pts;
+}
+
 class VideoPlayer
 {
 public:
@@ -84,6 +90,11 @@ public:
          m_errorString = "Could not open video file at: " + _videoPath;
          return;
       }
+
+      std::fseek(m_videoFile, 0, SEEK_END);
+      m_fileSize = std::ftell(m_videoFile);
+      std::fseek(m_videoFile, 0, SEEK_SET);
+      std::cout<<"FILE SIZE: "<<m_fileSize<<std::endl;
 
       memset(m_omxComponentList, 0, sizeof(m_omxComponentList));
       memset(m_omxTunnels, 0, sizeof(m_omxTunnels));
@@ -202,8 +213,22 @@ public:
 
    double currentTime() const
    {
+      ScopedLock lock(m_mutex);
 
-   }
+      OMX_TIME_CONFIG_TIMESTAMPTYPE tt;
+      //OMX_INIT_STRUCTURE(tt);
+      tt.nPortIndex = OMX_ALL;
+      if (OMX_GetConfig(ILC_GET_HANDLE(m_omxClock), OMX_IndexConfigTimeCurrentWallTime, &tt) != OMX_ErrorNone)
+      {
+         printf("timestamp: %d \n", tt.nTimestamp);
+         return fromOMXTime(tt.nTimestamp);
+      }
+      else
+      {
+         std::cout<<"could not get timestamp"<<std::endl;
+         return 0;
+      }
+   }  
 
    double currentPosition() const
    {
@@ -283,7 +308,12 @@ private:
             ilclient_change_component_state(m_omxVideoRenderer, OMX_StateExecuting);
          }
          
-         if(!data_len) fseek(m_videoFile, 0, SEEK_SET);
+         if(!data_len) 
+         {
+            std::fseek(m_videoFile, m_fileSize / 10, SEEK_SET);
+            first_packet = true;
+         }
+
 
          buf->nFilledLen = data_len;
          data_len = 0;
@@ -303,6 +333,7 @@ private:
             break;
          }
 
+         //std::cout<<"LOOP"<<std::endl;
       } while(buf);
 
       buf->nFilledLen = 0;
@@ -337,6 +368,7 @@ private:
    TUNNEL_T m_omxTunnels[4];
    ILCLIENT_T * m_ilClient;
    std::FILE * m_videoFile;
+   std::size_t m_fileSize;
 };
 
 static int video_decode_test(char *filename)
@@ -389,7 +421,7 @@ static int video_decode_test(char *filename)
    OMX_TIME_CONFIG_SCALETYPE scaleType;
    OMX_INIT_STRUCTURE(scaleType);
 
-   float speed = 0.5;
+   float speed = 1.0;
    scaleType.xScale = std::floor((speed * std::pow(2,16)));
 
    printf("set speed to : %.2f, %d\n", speed, scaleType.xScale);
@@ -474,7 +506,7 @@ static int video_decode_test(char *filename)
 
             ilclient_change_component_state(video_render, OMX_StateExecuting);
          }
-         if(!data_len) fseek(in, 0, SEEK_SET);
+         if(!data_len) std::fseek(in, 0, SEEK_SET);
 
          buf->nFilledLen = data_len;
          data_len = 0;
@@ -545,7 +577,8 @@ int main (int argc, char **argv)
    }
    while(true)
    {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      std::cout<<"CURRENT TIME: "<<player.currentTime()<<std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
    }
    return EXIT_SUCCESS;
 }
