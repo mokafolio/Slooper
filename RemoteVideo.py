@@ -16,7 +16,7 @@ damn.keypad(1) # i.e. arrow keys
 curses.noecho() # stop keys echoing
 
 def log(_str, _bTimeStamp = True):
-	logFilePath = "/home/pi/USBVideoMount/VideoLog.txt"
+	logFilePath = "/home/pi/USBVideoMount/SlooperLog.txt"
 
 	if os.path.exists(logFilePath):
 		with open(logFilePath, "r") as fin:
@@ -48,8 +48,9 @@ class DisplaySettings:
 # describes a collection of video files and that share settings and keyboard key
 class VideoGroup:
 	files = [] 
-	currentIndex = 0
+	currentIndex = 0 #current videoIndex
 	settings = ""
+	myIndex = 0 #index into the videos array
 
 # describes a playing video
 class VideoSession:
@@ -82,6 +83,7 @@ for video in jsonData["videoGroups"]:
 	vid.files = video["files"]
 	vid.settings = video["settings"]
 	videos.append(vid)
+	vid.myIndex = len(videos) - 1
 	keyVideoMap[video["key"]] = vid
 
 # holds the currently playing video and some extra info
@@ -93,9 +95,10 @@ def stopCurrentVideo():
 
 # this function stops the current video, if any, and starts playing the requested one
 # Before it starts playing, it will try to apply the new videos requested DisplaySettings
-def playVideo(videoGroup):
+def playVideoInGroup(videoGroup, videoIndex):
 	global currentVideoSession
 	lastGroup = None
+	videoGroup.currentIndex = videoIndex
 
 	# quit the previos video process if any
 	if currentVideoSession:
@@ -109,11 +112,7 @@ def playVideo(videoGroup):
 	currentSettings = displaySettings[currentVideoSession.videoGroup.settings]
 	assert currentSettings != None
 
-	# generate the full video path and make sure the video file exists
-	currentVideoSession.videoGroup.currentIndex += 1
-	if currentVideoSession.videoGroup.currentIndex >= len(currentVideoSession.videoGroup.files):
-		currentVideoSession.videoGroup.currentIndex = 0
-
+	log("The current video group index is: " + str(currentVideoSession.videoGroup.myIndex))
 	log("The current video index is: " + str(currentVideoSession.videoGroup.currentIndex))
 
 	videoPath = "/home/pi/USBVideoMount/" + currentVideoSession.videoGroup.files[currentVideoSession.videoGroup.currentIndex]
@@ -177,6 +176,14 @@ def playVideo(videoGroup):
 	videoProcess = subprocess.Popen("/opt/vc/src/hello_pi/hello_video/hello_video.bin " + videoPath, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
 	currentVideoSession.processID = videoProcess.pid
 
+def playNextVideoInGroup(_videoGroup):
+
+	# generate the full video path and make sure the video file exists
+	_videoGroup.currentIndex += 1
+	if _videoGroup.currentIndex >= len(_videoGroup.files):
+		_videoGroup.currentIndex = 0
+	playVideoInGroup(_videoGroup, _videoGroup.currentIndex)
+
 def gpioShutdownSequence():
 	#this is the shutdown sequence of the remote board, see the site linked below
 	offPin = 15
@@ -189,8 +196,16 @@ def gpioShutdownSequence():
 	time.sleep(0.4)
 	GPIO.output(offPin, 0)
 
-#play the first video in the array as the default one
-playVideo(videos[0])
+
+#check if we cached where to play from
+cachePath = "/home/pi/USBVideoMount/SlooperCache.json"
+if os.path.exists(cachePath):
+	with open(cachePath) as jsonFile:  
+		jsonData = json.load(jsonFile)
+		playVideoInGroup(videos[jsonData["lastVideoGroupIndex"]], jsonData["lastVideoIndex"])
+else:
+	#play the first video in the array as the default one
+	playNextVideoInGroup(videos[0])
 
 #GPIO pin stuff based on the instructions from the remote board people here:
 #http://www.msldigital.com/pages/support-for-remotepi-board-plus-2015/
@@ -217,7 +232,7 @@ while True:
   	elif c in range(256):
   		# otherwise we check if the key is mapped to a video. If so, we start playing that video
   		if chr(c) in keyVideoMap:
-  			playVideo(keyVideoMap[chr(c)])
+  			playNextVideoInGroup(keyVideoMap[chr(c)])
 
   	# check if the remote is pressed
 	if GPIO.input(pin) != 0:
@@ -242,6 +257,11 @@ subprocess.call("fbset -depth 8 && fbset -depth 16", shell=True)
 
 # cleanup GPIO
 GPIO.cleanup()
+
+#save which video we were at
+with open(cachePath, "w") as cache:
+	dc = {"lastVideoGroupIndex": currentVideoSession.videoGroup.myIndex, "lastVideoIndex": currentVideoSession.videoGroup.currentIndex}
+	json.dump(dc, cache)
 
 # and shutdown if requested
 if bShutDown:

@@ -19,20 +19,20 @@
 	"videoGroups":
 	[
 		{
+			"files":
+			[
+				"orbit_build9_tiffs_shorter.m4v"
+			],
+			"settings": "HD",
+			"key": "1"
+		},
+		{
 			"files": 
 			[
 				"judy_crook_fall_winter1.m4v",
 				"judy_crook_fall1.m4v"
 			],
 			"settings": "LowRes",
-			"key": "1"
-		},
-		{
-			"files":
-			[
-				"orbit_build9_tiffs_shorter.m4v"
-			],
-			"settings": "HD",
 			"key": "2"
 		}
 	]
