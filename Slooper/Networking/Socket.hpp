@@ -62,6 +62,8 @@ namespace slooper
 
 			bool isBlocking() const noexcept;
 
+			void setNativeSocket(int _socketfd) noexcept;
+
 
 		protected:
 

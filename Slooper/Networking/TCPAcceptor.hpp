@@ -1,7 +1,7 @@
 #ifndef SLOOPER_NETWORKING_TCPACCEPTOR_HPP
 #define SLOOPER_NETWORKING_TCPACCEPTOR_HPP
 
-#include <Slooper/Networking/Socket.hpp>
+#include <Slooper/Networking/TCPSocket.hpp>
 
 namespace slooper
 {
@@ -19,6 +19,8 @@ namespace slooper
 			void bind(const std::string & _address, std::error_condition & _error) noexcept;
 
 			void listen(unsigned int _queueSize, std::error_condition & _error) noexcept;
+
+			void accept(TCPSocket & _sock, SocketAddress & _newAddress, std::error_condition & _error) noexcept;
 		};
 	}
 }

@@ -36,5 +36,20 @@ namespace slooper
 				_error = std::error_code(errno, std::system_category()).default_error_condition();
 			}
 		}
+
+		void TCPAcceptor::accept(TCPSocket & _sock, SocketAddress & _newAddress, std::error_condition & _error) noexcept
+		{
+			int result;
+			socklen_t len;
+			do
+			{
+				result = ::accept(m_socketfd, &_newAddress.baseAddress, &len);
+			}
+			while(result != 0 && errno == EINTR);
+			if(result < 0 && result != EINTR)
+			{
+				_error = std::error_code(errno, std::system_category()).default_error_condition();
+			}
+		}
 	}
 }

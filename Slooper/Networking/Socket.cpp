@@ -114,6 +114,13 @@ namespace slooper
 			}
 		}
 
+		void Socket::setNativeSocket(int _socketfd) noexcept
+		{
+			if(isOpen())
+				close();
+			m_socketfd = _socketfd;
+		}
+
 		bool Socket::isListening() const noexcept
 		{
 			//TODO
