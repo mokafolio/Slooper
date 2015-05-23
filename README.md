@@ -89,6 +89,9 @@ This **Videos.json** has two different display settings, one for HD playback and
 The first video group contains two videos, *a.m4v* and *b.m4v*, using the low res settings. They are mapped to key "1" meaning that whenever you hit "1" on your keyboard, it will go to the next video in the *files* list.
 The second video group only contains one video, uses the *HD* settings and is mapped to key "2".
 
+##Temporary Files
+**Slooper** creates two temporary files on your usb drive. *SlooperLog.txt* which mainly servers debugging purposes. It is a file that Slooper uses to log information to. The other file is called *SlooperCache.json* which is a file used by **Slooper** to cache information. Right now it is mainly used to save which video was played, when Slooper exited the last time. This will be the video that will continue playing on the next start of Slooper.
+
 ##What does the installation script do?
 - The installation script is losely based on this article: http://curioustechnologist.com/post/90061671996/rpilooper-v2-seamless-video-looper-step-by-step , fully automating the steps that are necessary while adding some extra scripts and things to handle the remote and json configuration files.
 
