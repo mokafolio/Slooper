@@ -83,8 +83,11 @@ Here is an example:
 		}
 	]
 }
-
 ```
+
+This **Videos.json** has two different display settings, one for HD playback and one for 1024*768, and two video groups, holding three videos.
+The first video group contains two videos, *a.m4v* and *b.m4v*, using the low res settings. They are mapped to key "1" meaning that whenever you hit "1" on your keyboard, it will go to the next video in the *files* list.
+The second video group only contains one video, uses the *HD* settings and is mapped to key "2".
 
 ##What does the installation script do?
 - The installation script is losely based on this article: http://curioustechnologist.com/post/90061671996/rpilooper-v2-seamless-video-looper-step-by-step , fully automating the steps that are necessary while adding some extra scripts and things to handle the remote and json configuration files.
