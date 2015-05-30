@@ -15,17 +15,22 @@ namespace slooper
 
 		}
 
+		void TCPAcceptor::bind(const SocketAddress & _address, std::error_condition & _error) noexcept
+		{
+			//only ip4 for now
+			int res = ::bind(m_socketfd, &_address.baseAddress, sizeof(sockaddr_in));
+			if(res < 0)
+			{
+				_error = std::error_code(errno, std::system_category()).default_error_condition();
+			}
+		}
+
 		void TCPAcceptor::bind(const std::string & _address, std::error_condition & _error) noexcept
 		{
 			SocketAddress addr = Socket::socketAddressFromString(_address, _error);
 			if(_error) return;
 
-			//only ip4 for now
-			int res = ::bind(m_socketfd, &addr.baseAddress, sizeof(sockaddr_in));
-			if(res < 0)
-			{
-				_error = std::error_code(errno, std::system_category()).default_error_condition();
-			}
+			bind(addr, _error);
 		}
 
 		void TCPAcceptor::listen(unsigned int _queueSize, std::error_condition & _error) noexcept
@@ -50,6 +55,7 @@ namespace slooper
 			{
 				_error = std::error_code(errno, std::system_category()).default_error_condition();
 			}
+			_sock.setNativeSocket(result);
 		}
 	}
 }

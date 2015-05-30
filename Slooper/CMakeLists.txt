@@ -14,3 +14,7 @@ set(SlooperSources
 	Networking/TCPSocket.cpp)
 
 add_library(Slooper STATIC ${SlooperSources})
+add_executable(TestServer TestServer.cpp)
+target_link_libraries(TestServer Slooper)
+add_executable(TestClient TestClient.cpp)
+target_link_libraries(TestClient Slooper)

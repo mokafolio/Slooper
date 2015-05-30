@@ -41,6 +41,10 @@ namespace slooper
 
 		typedef std::vector<char> ByteArray;
 
+		ByteArray byteArrayFromString(const std::string & _str);
+
+		std::string byteArrayToString(const ByteArray & _arr);
+
 		class Socket
 		{
 		public:
@@ -64,12 +68,18 @@ namespace slooper
 
 			void setNativeSocket(int _socketfd) noexcept;
 
+			SocketAddress socketAddress(std::error_condition & _err) const noexcept;
 
-		protected:
+			void setOption(int _level, int _option, int _value, std::error_condition & _error) noexcept;
 
+
+			static SocketAddress localhostWithPort(unsigned short _port);
+
+			static std::string socketAddressToString(const SocketAddress & _addr);
 
 			static SocketAddress socketAddressFromString(const std::string & _address, std::error_condition & _error);
 
+		protected:
 
 			int m_socketfd;
 

@@ -15,7 +15,6 @@ namespace slooper
 
 		}
 
-
 		void TCPSocket::connect(const std::string & _address, std::error_condition & _error) noexcept
 		{
 			int result;
@@ -35,14 +34,12 @@ namespace slooper
 		}
 
 		std::size_t TCPSocket::send(const ByteArray & _bytes, std::error_condition & _error) noexcept
-		{
-			ssize_t result;
+		{	ssize_t result;
 			do
 			{
 				result = ::send(m_socketfd, &_bytes[0], _bytes.size(), 0);
 			}
 			while(result != 0 && errno == EINTR);
-
 			if(result < 0 && result != EINTR)
 			{
 				_error = std::error_code(errno, std::system_category()).default_error_condition();

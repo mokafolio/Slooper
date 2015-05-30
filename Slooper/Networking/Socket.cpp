@@ -4,6 +4,15 @@ namespace slooper
 {
 	namespace networking
 	{
+		ByteArray byteArrayFromString(const std::string & _str)
+		{
+			return ByteArray(_str.c_str(), _str.c_str() + _str.size());
+		}
+
+		std::string byteArrayToString(const ByteArray & _arr)
+		{
+			return std::string(_arr.begin(), _arr.begin() + _arr.size());
+		}
 
 		Socket::Socket(SocketType _type) noexcept :
 		m_type(_type),
@@ -47,6 +56,15 @@ namespace slooper
 			}
 		}
 
+		SocketAddress Socket::localhostWithPort(unsigned short _port)
+		{
+			SocketAddress ret;
+			ret.ip4Address.sin_family = AF_INET;
+			ret.ip4Address.sin_port = htons(_port);
+			ret.ip4Address.sin_addr.s_addr = INADDR_ANY;
+			return ret;
+		}
+
 		SocketAddress Socket::socketAddressFromString(const std::string & _address, std::error_condition & _error)
 		{
 			//retrieve port
@@ -79,6 +97,28 @@ namespace slooper
             if(result < 0)
             {
 				_error = std::error_code(errno, std::system_category()).default_error_condition();
+			}
+			return ret;
+		}
+
+		std::string Socket::socketAddressToString(const SocketAddress & _addr)
+		{
+			//only ip4 for now
+			char str[INET_ADDRSTRLEN];
+            const char * ret = ::inet_ntop(AF_INET, &(_addr.baseAddress), str, INET_ADDRSTRLEN);
+            if(!ret)
+                return "";
+            return ret;
+		}
+
+		SocketAddress Socket::socketAddress(std::error_condition & _err) const noexcept
+		{
+			SocketAddress ret;
+			socklen_t len = sizeof(ret);
+			int res = ::getsockname(m_socketfd, &ret.baseAddress, &len);
+			if(res < 0)
+			{
+				_err = std::error_code(errno, std::system_category()).default_error_condition();
 			}
 			return ret;
 		}
@@ -125,6 +165,16 @@ namespace slooper
 		{
 			//TODO
 			return false;
+		}
+
+		void Socket::setOption(int _level, int _option, int _value, std::error_condition & _error) noexcept
+		{
+			int res = ::setsockopt(m_socketfd, _level, _option, &_value, sizeof(_value));
+			
+			if(res < 0)
+			{
+				_error = std::error_code(errno, std::system_category()).default_error_condition();
+			}
 		}
 
 		bool Socket::isBlocking() const noexcept
