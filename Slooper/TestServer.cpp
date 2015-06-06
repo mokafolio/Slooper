@@ -81,6 +81,8 @@ public:
 
 int main(int _argc, const char * _args[])
 {
+	//we don't want to exit if a remote connection closes
+	//due to un unhandled SIGPIPE signal.
 	signal(SIGPIPE, SIG_IGN);
 
 	std::error_condition err;
