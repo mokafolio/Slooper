@@ -50,7 +50,7 @@ public:
 				//m_bIsRunning = false;
 				if(err)
 				{
-					std::cout<<"An error occured in TCPConnection"<<std::endl;
+					std::cout<<"An error occured in TCPConnection: "<<err.message()<<std::endl;
 					m_bIsRunning = false;
 					break;
 				}
