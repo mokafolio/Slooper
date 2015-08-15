@@ -19,9 +19,9 @@ set(SlooperSources
 
 add_library(Slooper STATIC ${SlooperSources})
 add_executable(TestServer TestServer.cpp)
-target_link_libraries(TestServer Slooper)
+target_link_libraries(TestServer Slooper pthread)
 add_executable(TestClient TestClient.cpp)
-target_link_libraries(TestClient Slooper)
+target_link_libraries(TestClient Slooper pthread)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	link_directories(/opt/vc/lib /opt/vc/src/hello_pi/libs/vgfont /opt/vc/src/hello_pi/libs/ilclient)

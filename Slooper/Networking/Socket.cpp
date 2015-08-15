@@ -1,4 +1,5 @@
 #include <Slooper/Networking/Socket.hpp>
+#include <iostream>
 
 namespace slooper
 {
@@ -92,8 +93,13 @@ namespace slooper
             	//TODO: Error
             }
 
+            std::cout<<"ADDR: "<<addr<<" PORT: "<<port<<std::endl;
+
+            ret.ip4Address.sin_family = AF_INET;
+			ret.ip4Address.sin_port = htons(port);
+
             //we only support ip4 for now
-            int result = inet_pton(AF_INET, addr.c_str(), &(ret.ip4Address));
+            int result = inet_pton(AF_INET, addr.c_str(), &(ret.ip4Address.sin_addr));
             if(result < 0)
             {
 				_error = std::error_code(errno, std::system_category()).default_error_condition();
