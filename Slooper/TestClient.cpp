@@ -15,7 +15,7 @@ int main(int _argc, const char * _args[])
 		return EXIT_FAILURE;
 	}
 
-	connection.connect("16.2.42.248:11000", err);
+	connection.connect("192.168.1.58:11000", err);
 	if(err)
 	{
 		std::cout<<"Could not connect to server: "<<err.message()<<std::endl;
