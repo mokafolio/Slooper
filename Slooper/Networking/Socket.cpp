@@ -61,7 +61,7 @@ namespace slooper
 			SocketAddress ret;
 			ret.ip4Address.sin_family = AF_INET;
 			ret.ip4Address.sin_port = htons(_port);
-			ret.ip4Address.sin_addr.s_addr = INADDR_ANY;
+			ret.ip4Address.sin_addr.s_addr = htonl(INADDR_ANY);
 			return ret;
 		}
 
