@@ -40,7 +40,15 @@ int main(int _argc, const char * _args[])
 			break;
 		}
 
-		std::cout<<networking::byteArrayToString(bytes)<<std::endl;
+		std::string message = networking::byteArrayToString(bytes);
+		if(message == "server: 5")
+		{
+			std::cout<<"Closing connection"<<std::endl;
+		}
+		else
+		{
+			std::cout<<message<<std::endl;
+		}
 	}
 
 	return EXIT_SUCCESS;
