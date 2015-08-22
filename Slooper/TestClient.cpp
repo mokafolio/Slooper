@@ -44,6 +44,8 @@ int main(int _argc, const char * _args[])
 		if(message == "server: 5")
 		{
 			std::cout<<"Closing connection"<<std::endl;
+			connection.close();
+			break;
 		}
 		else
 		{
