@@ -63,6 +63,8 @@ displaySettings = {}
 videos = []
 # dict mapping a key press to a Video object
 keyVideoMap = {}
+#variable holding the maximum play time, after which th pi will shut down
+maxPlayMinutes = int(jsonData["settings"])
 
 # parse the settings from the Videos.json
 for k,v in jsonData["settings"].items():
@@ -214,30 +216,36 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(pin, GPIO.IN)
 
 bShutDown = False
+startTime = time.time()
 # the main loop
 while True:
 	bQuit = False
-	# query if a key is pressed
-	c = damn.getch()
-  	if c == ord('q'):
-  		# if q is pressed, we quit and shutdown, replicating the remote behavior
-  		log("Keyboard q pressed, we quit and shut down now")
-  		gpioShutdownSequence()
-  		bQuit = True
-  	if c == ord('w'):
-  		# if w is pressed, we simply quit the video and this app, without shutting down
-  		log("Keyboard w pressed, we quit now")
-  		stopCurrentVideo()
-  		break
-  	elif c in range(256):
-  		# otherwise we check if the key is mapped to a video. If so, we start playing that video
-  		if chr(c) in keyVideoMap:
-  			playNextVideoInGroup(keyVideoMap[chr(c)])
+	minutesElapsed = (time.time() - startTime) / 60.0
 
-  	# check if the remote is pressed
-	if GPIO.input(pin) != 0:
-		log("Remote pressed, we quit and shut down now")
+	if minutesElapsed > maxPlayMinutes:
 		bQuit = True
+	else:
+		# query if a key is pressed
+		c = damn.getch()
+	  	if c == ord('q'):
+	  		# if q is pressed, we quit and shutdown, replicating the remote behavior
+	  		log("Keyboard q pressed, we quit and shut down now")
+	  		gpioShutdownSequence()
+	  		bQuit = True
+	  	if c == ord('w'):
+	  		# if w is pressed, we simply quit the video and this app, without shutting down
+	  		log("Keyboard w pressed, we quit now")
+	  		stopCurrentVideo()
+	  		break
+	  	elif c in range(256):
+	  		# otherwise we check if the key is mapped to a video. If so, we start playing that video
+	  		if chr(c) in keyVideoMap:
+	  			playNextVideoInGroup(keyVideoMap[chr(c)])
+
+	  	# check if the remote is pressed
+		if GPIO.input(pin) != 0:
+			log("Remote pressed, we quit and shut down now")
+			bQuit = True
 
 	# do shutdown procedure
 	if bQuit:
