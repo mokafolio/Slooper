@@ -45,6 +45,7 @@
 Here is an example:
 ```
 {
+    "maxPlayMinutes": 720, #pi will shut down after this time has elapsed
 	"settings": 
 	{
 		"LowRes":

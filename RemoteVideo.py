@@ -8,12 +8,39 @@ import signal
 import os
 import json
 import sys
+import struct
 import curses
 
 damn = curses.initscr()
 damn.nodelay(1) # doesn't keep waiting for a key press
 damn.keypad(1) # i.e. arrow keys
 curses.noecho() # stop keys echoing
+
+def isKeyDown(_key):
+	infile_path = "/dev/input/event" + (sys.argv[1] if len(sys.argv) > 1 else "0")
+
+	#long int, long int, unsigned short, unsigned short, unsigned int
+	FORMAT = 'llHHI'
+	EVENT_SIZE = struct.calcsize(FORMAT)
+
+	#open file in binary mode
+	in_file = open(infile_path, "rb")
+
+	event = in_file.read(EVENT_SIZE)
+
+	while event:
+	    (tv_sec, tv_usec, type, code, value) = struct.unpack(FORMAT, event)
+
+	    if type != 0 or code != 0 or value != 0:
+	        print("Event type %u, code %u, value: %u at %d, %d" % \
+	            (type, code, value, tv_sec, tv_usec))
+	    else:
+	        # Events with code, type and value == 0 are "separator" events
+	        print("===========================================")
+
+    	event = in_file.read(EVENT_SIZE)
+
+	in_file.close()
 
 def log(_str, _bTimeStamp = True):
 	logFilePath = "/home/pi/USBVideoMount/SlooperLog.txt"
@@ -64,7 +91,7 @@ videos = []
 # dict mapping a key press to a Video object
 keyVideoMap = {}
 #variable holding the maximum play time, after which th pi will shut down
-maxPlayMinutes = int(jsonData["settings"])
+maxPlayMinutes = int(jsonData["maxPlayMinutes"])
 
 # parse the settings from the Videos.json
 for k,v in jsonData["settings"].items():
@@ -223,6 +250,8 @@ while True:
 	minutesElapsed = (time.time() - startTime) / 60.0
 
 	if minutesElapsed > maxPlayMinutes:
+		log("Max time elapsed, shutting down now")
+		gpioShutdownSequence()
 		bQuit = True
 	else:
 		# query if a key is pressed
@@ -249,6 +278,7 @@ while True:
 
 	# do shutdown procedure
 	if bQuit:
+		log("Remote shut down procedure")
 		stopCurrentVideo()
 		GPIO.setup(pin, GPIO.OUT)
 		GPIO.output(pin, 1)
